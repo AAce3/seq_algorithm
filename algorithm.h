@@ -6,11 +6,6 @@ typedef unsigned long long size_s;
 #else
 typedef unsigned int size_s;
 #endif
-#ifdef __APPLE__
-#include <OpenCL/cl.h>
-#else
-#include <CL/cl.h>
-#endif
 
 typedef enum {
     Circular,
@@ -23,7 +18,9 @@ void align(const char *sequence,
            size_s max_diagonal,
            size_s max_distance,
            size_s *best_alignment,
-           float *best_identity);
+           float *best_identity,
+           float *identities,
+           AlignType type);
 
 
 #endif //ALGORITHM_H

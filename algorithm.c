@@ -1,11 +1,13 @@
 #include "algorithm.h"
 #include <stdlib.h>
+#include <string.h>
 
 #define triple_cmp(a, b, c) ((a >= b && a >= c) * -1 + (c >= b))
 #define min(a, b) (a > b ? b : a)
-static inline int packed_count(char *first, char *second, size_s len1, size_s len2);
 
-size_s wavefront_advance(size_s x, size_s y, char *sequence, size_s seq_len);
+static inline int packed_count(const char *first, const char *second, size_s len1, size_s len2);
+
+size_s wavefront_advance(size_s x, size_s y, const char *sequence, size_s seq_len);
 
 void align(const char *sequence,
            size_s seq_len,
@@ -13,7 +15,9 @@ void align(const char *sequence,
            size_s max_diagonal,
            size_s max_distance,
            size_s *best_alignment,
-           float *best_identity)
+           float *best_identity,
+           float *identities,
+           AlignType type)
 {
     size_s relevant_length = max_diagonal - min_diagonal;
     size_s wf_width = relevant_length + 2;
@@ -22,6 +26,10 @@ void align(const char *sequence,
     size_s *next_wf = calloc(wf_width, sizeof(*next_wf));
     size_s *matches = calloc(wf_width, sizeof(*matches));
     size_s *next_matches = calloc(wf_width, sizeof(*matches));
+
+    if (type == Circular) {
+        identities = calloc(relevant_length, sizeof(*identities));
+    }
     size_s m = seq_len - 1;
     for (size_s distance = 0; distance < max_distance; distance++) {
         // swap pointers to current and next wavefront
@@ -40,12 +48,17 @@ void align(const char *sequence,
             curr_wf[diagonal] += advance;
             if (x + advance >= m) {
                 float identity = (float) matches[diagonal] / ((float) (matches[diagonal] + distance));
-                if (identity > *best_identity) {
-                    *best_identity = identity;
-                    *best_alignment = diagonal + min_diagonal;
+                if (type == Circular) {
+                    if (identity > *best_identity) {
+                        *best_identity = identity;
+                        *best_alignment = diagonal + min_diagonal;
+                    }
+                } else if (type == HOR) {
+                    identities[diagonal - 1] = identity;
                 }
             }
         }
+
         for (size_s diagonal = 1; diagonal <= relevant_length; diagonal++) {
             size_s values[3];
 
@@ -60,12 +73,14 @@ void align(const char *sequence,
             next_matches[diagonal] = matches[best_idx];
         }
     }
+
+    free(curr_wf);
+    free(next_wf);
+    free(matches);
+    free(next_matches);
 }
 
-
-
-
-size_s wavefront_advance(size_s x, size_s y, char *sequence, size_s seq_len)
+size_s wavefront_advance(size_s x, size_s y, const char *sequence, size_s seq_len)
 {
     size_s y_orig = y;
     size_s count = 8;
@@ -78,7 +93,8 @@ size_s wavefront_advance(size_s x, size_s y, char *sequence, size_s seq_len)
     }
     return y - y_orig;
 }
-static inline int packed_count(char *first, char *second, size_s len1, size_s len2)
+
+static inline int packed_count(const char *first, const char *second, size_s len1, size_s len2)
 {
     uint64_t buffer1 = 0;
     uint64_t buffer2 = 0;
